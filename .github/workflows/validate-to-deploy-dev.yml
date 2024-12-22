@@ -31,6 +31,19 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
 
 jobs:
+  debug_inputs:
+    name: Debug Inputs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Debug
+        run: |
+          echo "TF_STATE_BUCKET_NAME=${{ inputs.TF_STATE_BUCKET_NAME }}"
+          echo "TF_STATE_KEY_PATH=${{ inputs.TF_STATE_KEY_PATH }}"
+          echo "TF_STATE_REGION=${{ inputs.TF_STATE_REGION }}"
+          echo "PROJECT_VARIABLES_FILE=${{ inputs.PROJECT_VARIABLES_FILE }}"
   terraform_validate:
     name: Terraform Validate
     runs-on: ubuntu-latest
