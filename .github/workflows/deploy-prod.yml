@@ -1,0 +1,63 @@
+name: Deploy Prod
+on:
+  workflow_call:
+    inputs:
+      TF_STATE_BUCKET_NAME:
+        description: "bucket name terraform state"
+        required: true
+        type: string
+      TF_STATE_KEY_PATH:
+        description: "bucket name terraform state"
+        required: true
+        type: string
+      TF_STATE_REGION:
+        description: "aws region bucket for terraform state"
+        required: false
+        default: "sa-east-1"
+        type: string
+      PROJECT_VARIABLES_FILE:
+          description: "file path for environment variables"
+          required: false
+          default: "infra/prod/parameters.tfvars"
+          type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+          required: true
+env:
+  AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
+  AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+
+jobs:
+
+  check_merge_and_run:
+    name: 'Validate Merge'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is merged
+        if: github.event.pull_request.merged != true
+        run: exit 1
+      - name: Proceed if PR is merged
+        run: echo "✅ Pull request was merged. Continuing workflow..."
+  
+  terraform_apply:
+    name: Terraform Apply
+    needs: 
+      - check_merge_and_run
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Terraform Apply
+      run: |
+        terraform init \
+          -backend-config="bucket=${{vars.TF_STATE_BUCKET_NAME}}" \
+          -backend-config="key=${{vars.TF_STATE_KEY_PATH}}/terraform.tfstate" \
+          -backend-config="region=${{vars.TF_STATE_REGION}}"
+        terraform validate
+        terraform workspace select prod || terraform workspace new prod
+        terraform apply -auto-approve -var-file="${{vars.PROJECT_VARIABLES_FILE}}"
