@@ -54,10 +54,10 @@ jobs:
       uses: actions/checkout@v4
     - name: Terraform Apply
       run: |
-        terraform init \
-          -backend-config="bucket=${{vars.TF_STATE_BUCKET_NAME}}" \
-          -backend-config="key=${{vars.TF_STATE_KEY_PATH}}/terraform.tfstate" \
-          -backend-config="region=${{vars.TF_STATE_REGION}}"
+        TF_LOG=DEBUG terraform init \
+          -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
+          -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
+          -backend-config="region=${{inputs.TF_STATE_REGION}}"
         terraform validate
         terraform workspace select prod || terraform workspace new prod
-        terraform apply -auto-approve -var-file="${{vars.PROJECT_VARIABLES_FILE}}"
+        terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
