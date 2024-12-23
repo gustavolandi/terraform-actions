@@ -55,7 +55,7 @@ jobs:
       uses: actions/checkout@v4
     - name: Terraform Plan
       run: |
-        terraform init \
+        TF_LOG=DEBUG terraform init \
           -backend-config="bucket=${{vars.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{vars.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{vars.TF_STATE_REGION}}"
