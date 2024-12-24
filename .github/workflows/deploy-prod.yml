@@ -95,8 +95,8 @@ jobs:
         terraform workspace select prod || terraform workspace new prod
         if [ "$destroy" == "true" ]; then
             echo "Executing Terraform Destroy"
-            terraform destroy -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+            terraform destroy -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
         else
             echo "Executing Terraform Apply"
-            terraform apply -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+            terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
         fi   

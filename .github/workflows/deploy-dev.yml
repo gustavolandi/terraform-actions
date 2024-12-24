@@ -94,10 +94,10 @@ jobs:
         terraform workspace select dev || terraform workspace new dev
         if [ "$destroy" == "true" ]; then
             echo "Executing Terraform Destroy"
-            terraform destroy -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+            terraform destroy -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
         else
             echo "Executing Terraform Apply"
-            terraform apply -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+            terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
         fi    
   pull_request:
     name: Pull Request
