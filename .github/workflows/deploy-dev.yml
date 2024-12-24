@@ -52,9 +52,29 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+    - name: Read Deploy Information
+      id: read-deploy-info
+      run: |
+        if [ -f deploy-information.txt ]; then
+          # Carregar os valores do arquivo como variáveis de ambiente
+          while IFS='=' read -r key value; do
+            key=$(echo "$key" | xargs) # Remove espaços extras
+            value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+            echo "$key=$value" >> $GITHUB_ENV
+          done < deploy-information.txt
+        else
+          echo "deploy-information.txt not found!"
+          exit 1
+        fi
+    - name: Validate Deploy Information
+      run: |
+        if [[ "$destroy" != "true" && "$destroy" != "false" ]]; then
+          echo "Invalid value for 'destroy'. Expected 'true' or 'false'. Found: $destroy"
+          exit 1
+        fi
     - name: Terraform Apply
       run: |
-        TF_LOG=DEBUG terraform init \
+        terraform init \
           -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{inputs.TF_STATE_REGION}}"
