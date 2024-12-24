@@ -40,14 +40,28 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Read Deploy Information
+    - name: Read and Validate Deploy Information
       id: read-deploy-info
       run: |
+        echo "terraform_log=INFO" >> $GITHUB_ENV
+        
         if [ -f deploy-information.txt ]; then
-          # Carregar os valores do arquivo como variáveis de ambiente
           while IFS='=' read -r key value; do
-            key=$(echo "$key" | xargs) # Remove espaços extras
-            value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | sed 's/;$//' | xargs)
+
+            if [ "$key" == "terraform_log" ]; then
+              case "$value" in
+                TRACE|DEBUG|INFO|WARN|ERROR)
+                  echo "Valid log level: $value"
+                  ;;
+                *)
+                  echo "Invalid log level: $value. Defaulting to INFO."
+                  value="INFO"
+                  ;;
+              esac
+            fi
+
             echo "$key=$value" >> $GITHUB_ENV
           done < deploy-information.txt
         else
@@ -62,7 +76,7 @@ jobs:
         fi
     - name: Terraform Plan
       run: |
-        TF_LOG=DEBUG terraform init \
+        TF_LOG=$terraform_log terraform init \
           -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{inputs.TF_STATE_REGION}}"
