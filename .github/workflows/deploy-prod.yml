@@ -52,14 +52,27 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Read Deploy Information
-      id: read-deploy-info
+    - name: Read and Validate Deploy Information
       run: |
+        echo "terraform_log=INFO" >> $GITHUB_ENV
+        
         if [ -f deploy-information.txt ]; then
-          # Carregar os valores do arquivo como variáveis de ambiente
-          while IFS='=' read -r key value; do
-            key=$(echo "$key" | xargs) # Remove espaços extras
-            value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+            while IFS='=' read -r key value || [ -n "$key" ]; do
+              key=$(echo "$key" | xargs) # Remove espaços extras
+              value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+
+              if [ "$key" == "terraform_log" ]; then
+                case "$value" in
+                  TRACE|DEBUG|INFO|WARN|ERROR)
+                    echo "Valid log level: $value"
+                    ;;
+                  *)
+                    echo "Invalid log level: $value. Defaulting to INFO."
+                    value="INFO"
+                    ;;
+                esac
+              fi
+
             echo "$key=$value" >> $GITHUB_ENV
           done < deploy-information.txt
         else
@@ -74,10 +87,16 @@ jobs:
         fi
     - name: Terraform Apply
       run: |
-        TF_LOG=DEBUG terraform init \
+        TF_LOG=$terraform_log terraform init \
           -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{inputs.TF_STATE_REGION}}"
         terraform validate
         terraform workspace select prod || terraform workspace new prod
-        terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
+        if [ "$destroy" == "true" ]; then
+            echo "Executing Terraform Destroy"
+            terraform destroy -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+        else
+            echo "Executing Terraform Apply"
+            terraform apply -auto-approve -var-file="${{ vars.PROJECT_VARIABLES_FILE }}"
+        fi   
