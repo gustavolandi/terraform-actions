@@ -46,21 +46,21 @@ jobs:
         echo "terraform_log=INFO" >> $GITHUB_ENV
         
         if [ -f deploy-information.txt ]; then
-          while IFS='=' read -r key value; do
-            key=$(echo "$key" | xargs)
-            value=$(echo "$value" | sed 's/;$//' | xargs)
+            while IFS='=' read -r key value || [ -n "$key" ]; do
+              key=$(echo "$key" | xargs) # Remove espaços extras
+              value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
 
-            if [ "$key" == "terraform_log" ]; then
-              case "$value" in
-                TRACE|DEBUG|INFO|WARN|ERROR)
-                  echo "Valid log level: $value"
-                  ;;
-                *)
-                  echo "Invalid log level: $value. Defaulting to INFO."
-                  value="INFO"
-                  ;;
-              esac
-            fi
+              if [ "$key" == "terraform_log" ]; then
+                case "$value" in
+                  TRACE|DEBUG|INFO|WARN|ERROR)
+                    echo "Valid log level: $value"
+                    ;;
+                  *)
+                    echo "Invalid log level: $value. Defaulting to INFO."
+                    value="INFO"
+                    ;;
+                esac
+              fi
 
             echo "$key=$value" >> $GITHUB_ENV
           done < deploy-information.txt
