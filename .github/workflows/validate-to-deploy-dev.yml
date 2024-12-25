@@ -43,6 +43,9 @@ jobs:
       - name: Teste Step
         run: |
           echo "test_variable=teste" >> $GITHUB_ENV
+      - name: Teste Step Variable Echo
+        run: |
+          echo "$test_variable"
   test2:
     name: Teste variavel 2
     needs:
