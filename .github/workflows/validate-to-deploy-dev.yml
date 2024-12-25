@@ -34,32 +34,24 @@ jobs:
   test1:
     name: Teste variavel
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Teste Step
-        run: |
-          echo "test_variable=teste" >> $GITHUB_ENV
+        run: echo "MY_VARIABLE=my_value" >> $GITHUB_ENV  
       - name: Teste Step Variable Echo
-        run: |
-          echo "$test_variable"
+        run: echo "$MY_VARIABLE"
   test2:
     name: Teste variavel 2
     needs:
       - test1
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
     steps:
       # - name: Checkout
       #   uses: actions/checkout@v4
       - name: Teste Step Variable Echo
         run: |
-          echo "$test_variable"
+          echo "${{ env.MY_VARIABLE }}"
 
   terraform_validate:
     name: Terraform Validate
