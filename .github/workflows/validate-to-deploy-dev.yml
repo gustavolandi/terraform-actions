@@ -52,8 +52,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # - name: Checkout
+      #   uses: actions/checkout@v4
       - name: Teste Step Variable Echo
         run: |
           echo "$test_variable"
