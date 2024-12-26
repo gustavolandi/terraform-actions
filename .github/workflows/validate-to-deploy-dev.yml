@@ -41,12 +41,15 @@ jobs:
         uses: actions/checkout@v4
       - name: Teste Step
         id: set-destroy
-        run: echo "::set-output name=destroy_flag::true"
+        run: | 
+          echo "destroy_flag=true" >> $GITHUB_OUTPUT
+          echo "another_variable=teste" >> $GITHUB_OUTPUT
+        
   test2:
     name: Teste variavel 2
     needs:
       - test1
-    if: ${{ needs.read-file.outputs.destroy_flag == 'true' }}
+    if: ${{ needs.test1.outputs.destroy_flag == 'true' }}
     runs-on: ubuntu-latest
     steps:
       # - name: Checkout
@@ -54,6 +57,7 @@ jobs:
       - name: Teste Step Variable Echo
         run: |
           echo "Running..."
+          echo "${{ needs.test1.outputs.another_variable }}"
 
   terraform_validate:
     name: Terraform Validate
