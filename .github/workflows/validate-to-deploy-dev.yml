@@ -34,24 +34,26 @@ jobs:
   test1:
     name: Teste variavel
     runs-on: ubuntu-latest
+    outputs:
+      destroy_flag: ${{ steps.set-destroy.outputs.destroy_flag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Teste Step
-        run: echo "MY_VARIABLE=my_value" >> $GITHUB_ENV  
-      - name: Teste Step Variable Echo
-        run: echo "$MY_VARIABLE"
+        id: set-destroy
+        run: echo "::set-output name=destroy_flag::true"
   test2:
     name: Teste variavel 2
     needs:
       - test1
+    if: ${{ needs.read-file.outputs.destroy_flag == 'true' }}
     runs-on: ubuntu-latest
     steps:
       # - name: Checkout
       #   uses: actions/checkout@v4
       - name: Teste Step Variable Echo
         run: |
-          echo "${{ env.MY_VARIABLE }}"
+          echo "Running..."
 
   terraform_validate:
     name: Terraform Validate
