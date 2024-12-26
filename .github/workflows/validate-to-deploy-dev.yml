@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       destroy_flag: ${{ steps.set-destroy.outputs.destroy_flag }}
+      another_variable: ${{ steps.set-destroy.outputs.another_variable }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
