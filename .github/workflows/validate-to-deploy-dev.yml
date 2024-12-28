@@ -54,28 +54,34 @@ jobs:
                   case "$value" in
                     TRACE|DEBUG|INFO|WARN|ERROR)
                       echo "Valid log level: $value"
+                      echo "log_terraform=$value" >> $GITHUB_OUTPUT
                       ;;
                     *)
                       echo "Invalid log level: $value. Defaulting to INFO."
-                      value="INFO"
+                      echo "log_terraform=INFO" >> $GITHUB_OUTPUT
                       ;;
                   esac
                 fi
-              
-              echo "$key=$value" >> $GITHUB_ENV
+
+
+                if [ "$key" == "destroy" ]; then
+                  case "$value" in
+                    true|false)
+                      echo "Valid destroy value: $value"
+                      echo "destroy_flag=$value" >> $GITHUB_OUTPUT
+                      ;;
+                    *)
+                      echo "Invalid destroy value: $value. Defaulting to false."
+                      echo "destroy_flag=false" >> $GITHUB_OUTPUT
+                      ;;
+                  esac
+                fi
             done < deploy-information.txt
           else
             echo "deploy-information.txt not found!"
             exit 1
           fi
-
-          if [[ "$destroy" != "true" && "$destroy" != "false" ]]; then
-            echo "Invalid value for 'destroy'. Expected 'true' or 'false'. Found: $destroy"
-            exit 1
-          fi
-
-          echo "destroy_flag=$destroy" >> $GITHUB_OUTPUT
-          echo "log_terraform=$terraform_log" >> $GITHUB_OUTPUT
+          
   terraform_validate:
     name: Terraform Validate
     needs:
