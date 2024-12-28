@@ -133,7 +133,10 @@ jobs:
     steps:
       - name: Debug Context
         run: |
-          echo "Terraform Validate Result: ${{ needs.terraform_destroy.result }}"    
+          echo "Terraform Destroy Result: ${{ needs.terraform_destroy.result }}"
+          echo "Terraform Validate Result: ${{ needs.terraform_validate.result }}"
+          echo ${{ needs.terraform_validate.result == 'success' || needs.terraform_destroy.result == 'success' }}    
+
 
 
       
