@@ -125,21 +125,6 @@ jobs:
         terraform validate
         terraform workspace select dev || terraform workspace new dev
         terraform plan --destroy
-
-  teste:
-    needs: 
-      - terraform_destroy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug Context
-        run: |
-          echo "Terraform Destroy Result: ${{ needs.terraform_destroy.result }}"
-          echo "Terraform Validate Result: ${{ needs.terraform_validate.result }}"
-          echo ${{ needs.terraform_validate.result == 'success' || needs.terraform_destroy.result == 'success' }}    
-
-
-
-      
   
   pull_request:
     name: Pull Request

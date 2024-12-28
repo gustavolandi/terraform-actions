@@ -143,6 +143,7 @@ jobs:
     needs:
       - terraform_apply
       - terraform_destroy
+    if: ${{ always() && (needs.terraform_apply.result == 'success' || needs.terraform_destroy.result == 'success') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
