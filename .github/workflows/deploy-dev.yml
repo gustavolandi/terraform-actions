@@ -149,7 +149,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Create Pull Request To develop
         continue-on-error: true
-        run: gh pr create -B develop  -H ${{ github.head_ref || github.ref_name }} --title 'Merge ${{ github.head_ref || github.ref_name }} into develop' --body 'Created by Github action'
+        run: gh pr create -B main -H develop --title 'Merge develop into main' --body 'Created by Github action'
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
