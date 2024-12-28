@@ -129,6 +129,7 @@ jobs:
   pull_request:
     name: Pull Request
     runs-on: ubuntu-latest
+    if: ${{ needs.terraform_apply.result == 'success' || needs.terraform_destroy.result == 'success' }}
     needs:
       - terraform_validate
       - terraform_destroy
