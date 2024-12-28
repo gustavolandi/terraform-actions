@@ -31,37 +31,56 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
 
 jobs:
-  test1:
-    name: Teste variavel
+  deploy_information:
+    name: Deploy Information
     runs-on: ubuntu-latest
     outputs:
-      destroy_flag: ${{ steps.set-destroy.outputs.destroy_flag }}
-      another_variable: ${{ steps.set-destroy.outputs.another_variable }}
+      destroy_flag: ${{ steps.read_file.outputs.destroy_flag }}
+      log_terraform: ${{ steps.read_file.outputs.log_terraform }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Teste Step
-        id: set-destroy
-        run: | 
-          echo "destroy_flag=true" >> $GITHUB_OUTPUT
-          echo "another_variable=teste" >> $GITHUB_OUTPUT
-        
-  test2:
-    name: Teste variavel 2
-    needs:
-      - test1
-    if: ${{ needs.test1.outputs.destroy_flag == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      # - name: Checkout
-      #   uses: actions/checkout@v4
-      - name: Teste Step Variable Echo
+      - name: Read and Validate Deploy Information
+        id : read_file
         run: |
-          echo "Running..."
-          echo "${{ needs.test1.outputs.another_variable }}"
+          echo "terraform_log=INFO" >> $GITHUB_ENV
+          
+          if [ -f deploy-information.txt ]; then
+              while IFS='=' read -r key value || [ -n "$key" ]; do
+                key=$(echo "$key" | xargs) # Remove espaços extras
+                value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+  
+                if [ "$key" == "terraform_log" ]; then
+                  case "$value" in
+                    TRACE|DEBUG|INFO|WARN|ERROR)
+                      echo "Valid log level: $value"
+                      ;;
+                    *)
+                      echo "Invalid log level: $value. Defaulting to INFO."
+                      value="INFO"
+                      ;;
+                  esac
+                fi
+              
+              echo "$key=$value" >> $GITHUB_ENV
+            done < deploy-information.txt
+          else
+            echo "deploy-information.txt not found!"
+            exit 1
+          fi
 
+          if [[ "$destroy" != "true" && "$destroy" != "false" ]]; then
+            echo "Invalid value for 'destroy'. Expected 'true' or 'false'. Found: $destroy"
+            exit 1
+          fi
+
+          echo "destroy_flag=$destroy" >> $GITHUB_OUTPUT
+          echo "log_terraform=$terraform_log" >> $GITHUB_OUTPUT
   terraform_validate:
     name: Terraform Validate
+    needs:
+      - deploy_information
+    if: ${{ needs.deploy_information.outputs.destroy_flag == 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -69,48 +88,37 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Read and Validate Deploy Information
-      run: |
-        echo "terraform_log=INFO" >> $GITHUB_ENV
-        
-        if [ -f deploy-information.txt ]; then
-            while IFS='=' read -r key value || [ -n "$key" ]; do
-              key=$(echo "$key" | xargs) # Remove espaços extras
-              value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
-
-              if [ "$key" == "terraform_log" ]; then
-                case "$value" in
-                  TRACE|DEBUG|INFO|WARN|ERROR)
-                    echo "Valid log level: $value"
-                    ;;
-                  *)
-                    echo "Invalid log level: $value. Defaulting to INFO."
-                    value="INFO"
-                    ;;
-                esac
-              fi
-
-            echo "$key=$value" >> $GITHUB_ENV
-          done < deploy-information.txt
-        else
-          echo "deploy-information.txt not found!"
-          exit 1
-        fi
-    - name: Validate Deploy Information
-      run: |
-        if [[ "$destroy" != "true" && "$destroy" != "false" ]]; then
-          echo "Invalid value for 'destroy'. Expected 'true' or 'false'. Found: $destroy"
-          exit 1
-        fi
     - name: Terraform Plan
       run: |
-        TF_LOG=$terraform_log terraform init \
+        TF_LOG=${{ needs.deploy_information.outputs.terraform_log }} terraform init \
           -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{inputs.TF_STATE_REGION}}"
         terraform validate
         terraform workspace select dev || terraform workspace new dev
         terraform plan -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
+  
+  terraform_destroy:
+    name: Terraform Destroy
+    needs:
+      - deploy_information
+    if: ${{ needs.deploy_information.outputs.destroy_flag == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Terraform Destroy
+      run: |
+        TF_LOG=${{ needs.deploy_information.outputs.terraform_log }} terraform init \
+          -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
+          -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
+          -backend-config="region=${{inputs.TF_STATE_REGION}}"
+        terraform validate
+        terraform workspace select dev || terraform workspace new dev
+        terraform plan --destroy
   
   pull_request:
     name: Pull Request
