@@ -25,12 +25,12 @@ on:
         required: true
       AWS_SECRET_ACCESS_KEY:
           required: true
+
 env:
   AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
   AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
 
 jobs:
-
   check_merge_and_run:
     name: 'Validate Merge'
     runs-on: ubuntu-latest
@@ -40,11 +40,64 @@ jobs:
         run: exit 1
       - name: Proceed if PR is merged
         run: echo "✅ Pull request was merged. Continuing workflow..."
-  
-  terraform_apply:
-    name: Deploy Dev
-    needs: 
+  deploy_information:
+    name: Deploy Information
+    needs:
       - check_merge_and_run
+    runs-on: ubuntu-latest
+    outputs:
+      destroy_flag: ${{ steps.read_file.outputs.destroy_flag }}
+      log_terraform: ${{ steps.read_file.outputs.log_terraform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Read and Validate Deploy Information
+        id : read_file
+        run: |
+          echo "terraform_log=INFO" >> $GITHUB_ENV
+          
+          if [ -f deploy-information.txt ]; then
+              while IFS='=' read -r key value || [ -n "$key" ]; do
+                key=$(echo "$key" | xargs) # Remove espaços extras
+                value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
+  
+                if [ "$key" == "terraform_log" ]; then
+                  case "$value" in
+                    TRACE|DEBUG|INFO|WARN|ERROR)
+                      echo "Valid log level: $value"
+                      echo "log_terraform=$value" >> $GITHUB_OUTPUT
+                      ;;
+                    *)
+                      echo "Invalid log level: $value. Defaulting to INFO."
+                      echo "log_terraform=INFO" >> $GITHUB_OUTPUT
+                      ;;
+                  esac
+                fi
+
+
+                if [ "$key" == "destroy" ]; then
+                  case "$value" in
+                    true|false)
+                      echo "Valid destroy value: $value"
+                      echo "destroy_flag=$value" >> $GITHUB_OUTPUT
+                      ;;
+                    *)
+                      echo "Invalid destroy value: $value. Defaulting to false."
+                      echo "destroy_flag=false" >> $GITHUB_OUTPUT
+                      ;;
+                  esac
+                fi
+            done < deploy-information.txt
+          else
+            echo "deploy-information.txt not found!"
+            exit 1
+          fi
+          
+  terraform_apply:
+    name: Terraform Apply
+    needs:
+      - deploy_information
+    if: ${{ needs.deploy_information.outputs.destroy_flag == 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,64 +105,50 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Read and Validate Deploy Information
-      run: |
-        echo "terraform_log=INFO" >> $GITHUB_ENV
-        
-        if [ -f deploy-information.txt ]; then
-            while IFS='=' read -r key value || [ -n "$key" ]; do
-              key=$(echo "$key" | xargs) # Remove espaços extras
-              value=$(echo "$value" | sed 's/;$//' | xargs) # Remove ';' e espaços extras
-
-              if [ "$key" == "terraform_log" ]; then
-                case "$value" in
-                  TRACE|DEBUG|INFO|WARN|ERROR)
-                    echo "Valid log level: $value"
-                    ;;
-                  *)
-                    echo "Invalid log level: $value. Defaulting to INFO."
-                    value="INFO"
-                    ;;
-                esac
-              fi
-
-            echo "$key=$value" >> $GITHUB_ENV
-          done < deploy-information.txt
-        else
-          echo "deploy-information.txt not found!"
-          exit 1
-        fi
-    - name: Validate Deploy Information
-      run: |
-        if [[ "$destroy" != "true" && "$destroy" != "false" ]]; then
-          echo "Invalid value for 'destroy'. Expected 'true' or 'false'. Found: $destroy"
-          exit 1
-        fi
     - name: Terraform Apply
       run: |
-        TF_LOG=$terraform_log terraform init \
+        TF_LOG=${{ needs.deploy_information.outputs.terraform_log }} terraform init \
           -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
           -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
           -backend-config="region=${{inputs.TF_STATE_REGION}}"
+        terraform validate
         terraform workspace select dev || terraform workspace new dev
-        if [ "$destroy" == "true" ]; then
-            echo "Executing Terraform Destroy"
-            terraform destroy -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
-        else
-            echo "Executing Terraform Apply"
-            terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
-        fi    
+        terraform apply -auto-approve -var-file="${{inputs.PROJECT_VARIABLES_FILE}}"
+  
+  terraform_destroy:
+    name: Terraform Destroy
+    needs:
+      - deploy_information
+    if: ${{ needs.deploy_information.outputs.destroy_flag == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Terraform Destroy
+      run: |
+        TF_LOG=${{ needs.deploy_information.outputs.terraform_log }} terraform init \
+          -backend-config="bucket=${{inputs.TF_STATE_BUCKET_NAME}}" \
+          -backend-config="key=${{inputs.TF_STATE_KEY_PATH}}/terraform.tfstate" \
+          -backend-config="region=${{inputs.TF_STATE_REGION}}"
+        terraform validate
+        terraform workspace select dev || terraform workspace new dev
+        terraform destroy -auto-approve
+  
   pull_request:
     name: Pull Request
     runs-on: ubuntu-latest
     needs:
       - terraform_apply
+      - terraform_destroy
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Create Pull Request To main
-        run: gh pr create -B main -H develop --title 'Merge develop into main' --body 'Created by Github action'
+      - name: Create Pull Request To develop
         continue-on-error: true
+        run: gh pr create -B develop  -H ${{ github.head_ref || github.ref_name }} --title 'Merge ${{ github.head_ref || github.ref_name }} into develop' --body 'Created by Github action'
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+  
