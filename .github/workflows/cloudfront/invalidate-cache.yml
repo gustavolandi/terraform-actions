@@ -1,0 +1,18 @@
+name: Invalidate CloudFront
+description: Custom action to invalidate CloudFront cache
+runs:
+  using: "composite"
+  steps:
+    - name: Install AWS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+
+    - name: Invalidate CloudFront cache
+      run: |
+        aws cloudfront create-invalidation --distribution-id ${{ inputs.distribution_id }} --paths "/*"
+      shell: bash
+inputs:
+  distribution_id:
+    description: 'CloudFront distribution ID'
+    required: true

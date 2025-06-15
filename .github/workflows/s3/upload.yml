@@ -1,0 +1,22 @@
+
+name: Upload to S3
+description: Custom action to upload build files to S3 bucket
+runs:
+  using: "composite"
+  steps:
+    - name: Install AWS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+
+    - name: Upload to S3
+      run: |
+        aws s3 sync ${{ inputs.source_dir }} s3://${{ inputs.bucket_name }} --acl public-read --delete
+      shell: bash
+inputs:
+  source_dir:
+    description: 'Directory to upload'
+    required: true
+  bucket_name:
+    description: 'S3 bucket name'
+    required: true
